@@ -53,10 +53,10 @@ This repo contains code, documentation, and datasets for projects I’ve built. 
 ## 🔗 Other Projects
 In addition to the files here, I’ve worked on several projects linked externally:
 
-- **NFL Big Data Bowl 2026 - Hit 'Em In Stride** – [kaggle.com/code/mkulynych/hit-em-in-stride-final](https://www.kaggle.com/code/mkulynych/hit-em-in-stride-final) For the 2026 NFL Big Data Bowl, we decided to explore the importance of hitting the receiver in stride on deeper passes. Specifically, we wanted to see how it related to efficiency metrics, creating explosive plays
-- **Wake Forest Men’s Soccer Match Analyses** – Weekly tactical and performance breakdowns published in *Old Gold & Black*.    
+- **NFL Big Data Bowl 2026 - Hit 'Em In Stride** – [kaggle.com/code/mkulynych/hit-em-in-stride-final](https://www.kaggle.com/code/mkulynych/hit-em-in-stride-final) For the 2026 NFL Big Data Bowl, we decided to explore the importance of hitting the receiver in stride on deeper passes. Specifically, we wanted to see how it related to efficiency metrics, creating explosive plays, and which quarterbacks were the best at hitting their receiver in stride. We defined "in-stride" based on the receiver's pre and post throw acceleration, and "in-stride" throws were considered to be those where the receiver's acceleration did not change a lot immediately before and after the throw. Feel free to read through our Kaggle notebook for our motivation, methods, results, and applications!
+
+- **Wake Forest Men’s Soccer Match Analyses** – I auuthored weekly tactical and performance breakdowns published in the *Old Gold & Black* newspaper at Wake Forest University for the men's soccer team. Here is the link to all of my articles! [wfuogb.com/staff_name/matthew-kulynych/](https://wfuogb.com/staff_name/matthew-kulynych/)
 
 ---
 
-## 🚀 Purpose
-This repository serves as both a portfolio and a learning space — documenting my journey in sports analytics, sharing reproducible code, and providing resources for others interested in the intersection of sports and data science.
+
