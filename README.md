@@ -13,7 +13,8 @@ Welcome! I’m **Matthew Kulynych**, an aspiring sports analyst and data scienti
 
 ## 📄 Resume
 Looking for a detailed overview of my skills and experience?  
-👉 [Here is my Resume! (PDF)](https://github.com/matthew-kulynych/Matthew-Kulynych/raw/main/MK-Resume.pdf)
+👉 [View my Resume](MK-Resume.pdf)
+👉 [Download my Resume (PDF)](https://github.com/matthew-kulynych/Matthew-Kulynych/raw/main/MK-Resume.pdf)
 
 ---
 
