@@ -1,0 +1,379 @@
+---
+title: "MK_DataBowl1_Q3"
+output: html_document
+date: "2025-09-21"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=F}
+### Install and Load Packages
+install.packages("nflreadr")
+install.packages("tidyverse")
+install.packages("lubridate")
+install.packages("janitor")
+install.packages("scales")
+install.packages("gt")
+install.packages("ggrepel")
+install.packages("zoo")
+
+library(nflreadr)    # data access
+library(tidyverse)   # dplyr/ggplot/readr, etc.
+library(lubridate)   # dates/times
+library(janitor)     # clean_names, tabyl
+library(scales)      # pretty labels
+library(gt)          # presentation tables (not saved here)
+library(ggrepel)     # labels for charts
+library(zoo)         # rolling calcs
+library(knitr)       # for tables
+```
+
+```{r, include=F}
+## Set Giants parameters
+team <- "NYG"
+season = 2025
+```
+
+
+```{r, include=F}
+## Load 2025 Season Data
+sched <- load_schedules(seasons = season) %>% clean_names()
+
+## Load Giants Game 2 (vs DAL) information
+giants_g2 <- sched %>%
+  filter(game_type == "REG",
+         season == !!season,
+         home_team == !!team | away_team == !!team) %>%
+  arrange(gameday, week) %>%
+  slice(2)
+
+stopifnot(nrow(giants_g2) == 1)
+
+game_id <- giants_g2$game_id
+week    <- giants_g2$week
+gameday <- giants_g2$gameday
+home_tm <- giants_g2$home_team
+away_tm <- giants_g2$away_team
+opp     <- ifelse(home_tm == team, away_tm, home_tm)
+```
+
+```{r, include=F}
+### Load the game data for Giants WK2:
+pbp_g2 <- load_pbp(seasons = season) %>%
+  clean_names() %>%
+  filter(game_id == !!game_id)
+
+rw_g2 <- load_rosters_weekly(seasons = season) %>%
+  clean_names() %>%
+  filter(week == !!week, team %in% c(team, opp))
+
+players_master <- load_players() %>% clean_names()
+```
+
+```{r, include=F}
+### DATA INTEGRITY CHECKS
+cat("\n--- STRUCTURE ---\n")
+cat("PBP rows/cols:", nrow(pbp_g2), ncol(pbp_g2), "\n")
+cat("Weekly roster rows/cols:", nrow(rw_g2), ncol(rw_g2), "\n")
+
+# ---- B) Key constraints & duplicates ----
+# Expect play-level key uniqueness by (game_id, play_id)
+dup_plays <- pbp_g2 %>%
+  count(game_id, play_id) %>%
+  filter(n > 1)
+
+if (nrow(dup_plays) > 0) {
+  warning("Duplicate plays detected in (game_id, play_id). Inspect `dup_plays`.")
+} else {
+  cat("Key check passed: (game_id, play_id) appear unique for this game.\n")
+}
+
+# For weekly rosters, (team, gsis_id) often repeats by position slots; check basic duplication
+dup_roster <- rw_g2 %>%
+  count(team, gsis_id, week) %>%
+  filter(n > 1)
+if (nrow(dup_roster) > 0) {
+  message("Note: roster has repeated (team, gsis_id, week) rows—can be normal when multiple rows exist per role/slot.")
+}
+
+# ---- C) Referential integrity (players present in master) ----
+# Attempt to match weekly roster players to master by gsis_id (best available common key)
+if ("gsis_id" %in% names(rw_g2) && "gsis_id" %in% names(players_master)) {
+  roster_master_match <- rw_g2 %>%
+    mutate(in_master = gsis_id %in% players_master$gsis_id) %>%
+    summarize(match_rate = mean(in_master, na.rm = TRUE))
+  cat("Player master match rate (weekly roster -> master by gsis_id):",
+      round(roster_master_match$match_rate*100, 1), "%\n")
+} else {
+  message("gsis_id not present to check roster->player master referential integrity.")
+}
+
+# ---- D) Missingness (critical analytical fields) ----
+na_rate <- function(x) mean(is.na(x))
+na_summary <- pbp_g2 %>%
+  summarize(
+    na_epa          = na_rate(epa),
+    na_success      = na_rate(success),
+    na_posteam      = na_rate(posteam),
+    na_defteam      = na_rate(defteam),
+    na_yardline_100 = na_rate(yardline_100),
+    na_down         = na_rate(down),
+    na_ydstogo      = na_rate(ydstogo),
+    na_play_type    = na_rate(play_type)
+  )
+cat("\n--- MISSINGNESS (PBP) ---\n"); print(na_summary)
+
+# ---- E) Range & logical checks ----
+# yardline_100 should be within [0, 100]
+bad_yardline <- pbp_g2 %>% filter(!is.na(yardline_100) & (yardline_100 < 0 | yardline_100 > 100))
+if (nrow(bad_yardline) > 0) warning("Out-of-range yardline_100 values observed.")
+
+# down should be 1–4 (ignore special plays like kickoffs which may have NA)
+bad_down <- pbp_g2 %>% filter(!is.na(down) & !(down %in% 1:4))
+if (nrow(bad_down) > 0) warning("Unexpected down values outside 1–4.")
+
+# ydstogo should be positive for standard plays
+bad_ydstogo <- pbp_g2 %>% filter(!is.na(ydstogo) & ydstogo <= 0)
+if (nrow(bad_ydstogo) > 0) message("Non-positive ydstogo rows exist (could be goal-to-go anomalies or data glitches).")
+
+# game_id consistency
+if (length(unique(pbp_g2$game_id)) != 1) warning("Multiple game_ids in pbp_g2; filter may be off.")
+
+# posteam/defteam should be one of the two teams (allow NA on non-plays)
+valid_teams <- c(team, opp)
+weird_teams <- pbp_g2 %>%
+  filter(!is.na(posteam) & !(posteam %in% valid_teams)) %>%
+  distinct(posteam)
+if (nrow(weird_teams) > 0) warning("Found posteam not matching Colts or opponent: check `weird_teams`.")
+
+# ---- F) Categorical consistency (team abbreviations) ----
+cat("\n--- TEAM ABBREVS IN PBP ---\n")
+print(sort(unique(na.omit(pbp_g2$posteam))))
+print(sort(unique(na.omit(pbp_g2$defteam))))
+```
+
+# 1. How successful was each team on 1st, 2nd, and 3rd down for both passing and running plays?
+
+```{r, include=F}
+# Filter out rows where posteam is missing
+pbp_g2_filtered <- pbp_g2 %>%
+  filter(!is.na(posteam))
+
+# Create Data Set
+situ_epa <- pbp_g2_filtered %>%
+  # Filter out only pass/run
+  filter(play_type %in% c("run", "pass")) %>%
+  
+  # Filter only 1st and 3rd down
+  filter(down %in% 1:3) %>%
+  
+  # Create yards_to_go bucket
+  mutate(
+    ydstogo_bucket = case_when(
+      ydstogo <= 2 ~ "1-2",
+      ydstogo <= 5 ~ "3-5",
+      ydstogo <= 10 ~ "6-10",
+      TRUE ~ "11+"
+    )
+  )
+```
+
+```{r, include=F}
+## Calculate average EPA for each play type per down per team
+downs_epa <- situ_epa %>%
+  group_by(posteam, down, play_type) %>%
+  summarize(
+    plays = n(),
+    avg_epa = round(mean(epa, na.rm = TRUE),2),
+    success_rate = mean(success, na.rm = TRUE),
+    avg_yards_gained = round(mean(yards_gained, na.rm = TRUE),2)
+  ) %>%
+  arrange(posteam, down) %>%
+  gt() %>%
+  tab_header(
+    title = "Average EPA and Success Rate by Down and Play Type"
+  ) %>%
+  fmt_percent(
+    columns = vars(success_rate),
+    decimals = 0
+  ) %>%
+  cols_label(
+    posteam = "Team",
+    down = "Down",
+    play_type = "Play Type",
+    plays = "Plays",
+    avg_epa = "Avg EPA",
+    success_rate = "Success Rate",
+    avg_yards_gained = "Average Yards Gained"
+  )
+```
+
+```{r, echo=F}
+downs_epa
+```
+
+```{r, include=F}
+## Including ydstogo_bucket
+downs_ydstogo_epa <- situ_epa %>%
+  group_by(posteam, down, play_type, ydstogo_bucket) %>%
+  summarize(
+    plays = n(),
+    avg_epa = round(mean(epa, na.rm = TRUE),2),
+    success_rate = mean(success, na.rm = TRUE),
+    avg_yards_gained = round(mean(yards_gained, na.rm = TRUE),2)
+  ) %>%
+  arrange(posteam, down) %>%
+  gt() %>%
+  tab_header(
+    title = "Average EPA and Success Rate by Down, Yards to Go, and Play Type"
+  ) %>%
+  fmt_percent(
+    columns = vars(success_rate),
+    decimals = 0
+  ) %>%
+  cols_label(
+    posteam = "Team",
+    down = "Down",
+    play_type = "Play Type",
+    ydstogo_bucket = "Yards to Go",
+    plays = "Plays",
+    avg_epa = "Avg EPA",
+    success_rate = "Success Rate",
+    avg_yards_gained = "Avg Yards Gained"
+  )
+```
+
+```{r, echo = F}
+downs_ydstogo_epa
+```
+
+
+These 2 charts illustrate how efficient and successful each team was on each down, split up between running and passing plays. The first one shows just the down and play type, while the 2nd one splits into how many yards are needed to get a 1st down. 
+
+First, looking at Dallas, they were relatively evenly split between runs and passes on 1st and 2nd downs, with a slight edge to passing plays. Across the board, they were around equally successful on 1st, 2nd, and 3rd down for all passing plays, at a 46-50% success rate, though the EPA was much higher on 2nd and 3rd than for 1st. However, they were very successful running the ball on 2nd down with an average EPA of 0.33 and success rate of 70%. From the 2nd chart, we can see that they were at least 75% successful from 5 yards to go or less, gaining an average of 4.5 yards with a 75% success rate with 3-5 yards to go. Interestingly, though, the Cowboys were very unsuccessful running the ball on 1st down, with a negative EPA and a 24% success rate, and only ran the ball once on 3rd down, which was a 3rd and long play that only gained 3 yards. Teams should key in on this, whether it was the Giants needing to improve their 3rd down pass defense, particularly on 3rd and medium and 3rd and long, or just noting that the Cowboys were very unlikely to run on 3rd.
+
+For the Giants, they also had a relatively even split on runs and passes on 1st and 2nd down, with a heavy lean on the passing game on 3rd down. Looking at 1st down, they were much more effective passing than running the ball, with a success rate of 76% compared to only 25%. They gained an average of 14.5 yards on 1st down passes with 6-10 yards to go on 16 plays. They were much less effective running, with only an 18% success rate on running plays with similar yards to go. The 1st down running game needs to improve for the Giants. The opposite appears to be true for 2nd down. The Giants were more successful on their 7 2nd down runs than their 13 2nd down passes, gaining 3 more yards on average. The Giants lost an average of 7 yards on 2nd and medium passing plays (though penalties could be skewing this). Similarly, the Giants were more successful running than passing on 3rd down, though they only ran it twice compared to 12 passes. Again, teams could note that they were much more likely to pass than run, but the Giants were effective on their lone 3rd and short run, gaining a 1st down on a 3 yard run. The Giants were generally unsuccessful on 3rd and long, but had 1 3rd and long deep pass to skew those results. They were pretty efficient on 3rd and medium, though, gaining 6 yards on average with a 60% success rate with 5 plays.
+
+
+
+# 2. Which players in the game were most efficient inside the Red Zone?
+
+```{r, include=F}
+# Split plays by role: separate rows for passer, receiver, rusher
+redzone_players_expanded <- pbp_g2_filtered %>%
+  filter(play_type %in% c("pass", "run"), yardline_100 <= 20) %>%
+  # Create separate rows per role
+  mutate(
+    is_pass = !is.na(passer_player_name),
+    is_receiver = !is.na(receiver_player_name),
+    is_rusher = !is.na(rusher_player_name)
+  ) %>%
+  tidyr::pivot_longer(
+    cols = c(passer_player_name, receiver_player_name, rusher_player_name),
+    names_to = "role_type",
+    values_to = "player",
+    values_drop_na = TRUE
+  ) %>%
+  mutate(
+    role = case_when(
+      role_type == "passer_player_name"   ~ "Passer",
+      role_type == "receiver_player_name" ~ "Receiver",
+      role_type == "rusher_player_name"   ~ "Rusher"
+    )
+  )
+
+# Summarize by team, player, role
+redzone_summary <- redzone_players_expanded %>%
+  group_by(posteam, player, role) %>%
+  summarise(
+    plays = n(),
+    total_epa = round(sum(epa, na.rm = TRUE),2),
+    avg_epa   = round(mean(epa, na.rm = TRUE),2),
+    success_rate = round(mean(success, na.rm = TRUE),2),
+    avg_yards_gained = round(mean(yards_gained, na.rm=TRUE), 2),
+    touchdowns = sum(touchdown, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(posteam, desc(total_epa)) %>%
+  gt(groupname_col = "posteam") %>%
+  cols_label(
+    player = "Player",
+    role = "Role",
+    plays = "Plays",
+    total_epa = "Total EPA",
+    avg_epa = "Average EPA",
+    success_rate = "Success Rate",
+    avg_yards_gained = "Average Yards Gained",
+    touchdowns = "TDs"
+  ) %>%
+  fmt_percent(columns = vars(success_rate), decimals = 1) %>%
+  tab_header(
+    title = "Red Zone EPA Contributions - Giants Game vs Cowboys",
+    subtitle = "Passers, Rushers, and Receivers"
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#E6F0FF"),
+    locations = cells_body(rows = posteam == "DAL")
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#FFF0F0"),
+    locations = cells_body(rows = posteam == "NYG")
+  )
+
+```
+
+```{r, echo=F}
+redzone_summary
+```
+
+```{r, include=F}
+# Filter for drives that reached the red zone
+redzone_drives <- pbp_g2_filtered %>%
+  filter(yardline_100 <= 20) %>%
+  group_by(posteam, drive) %>%
+  summarise(
+    plays_in_drive = n(),
+    total_epa = round(sum(epa, na.rm = TRUE),2),
+    avg_epa = round(mean(epa, na.rm = TRUE),2),
+    success_rate = round(mean(success, na.rm = TRUE),2),
+    touchdowns = sum(touchdown, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(drive) %>%
+  gt(groupname_col = "posteam") %>%
+  cols_label(
+    drive = "Drive #",
+    plays_in_drive = "Plays",
+    total_epa = "Total EPA",
+    avg_epa = "Avg EPA",
+    success_rate = "Success Rate",
+    touchdowns = "TDs"
+  ) %>%
+  fmt_percent(columns = vars(success_rate), decimals = 1) %>%
+  tab_header(
+    title = "Red Zone Drive Summary - Giants Game vs Cowboys",
+    subtitle = "All Drives Reaching Opponent 20-Yard Line"
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#E6F0FF"),
+    locations = cells_body(rows = posteam == "DAL")
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#FFF0F0"),
+    locations = cells_body(rows = posteam == "NYG")
+  )
+
+```
+
+```{r, echo=F}
+redzone_drives
+```
+
+
+The charts above shows each player's efficiency and success rate in the red zone for all players with at least 1 touch, and each drive that reached the red zone. The most startling discovery is how inefficient the Giants were in the red zone compared to the Cowboys. No Giants player had a positive EPA, and no passing situations led to a positive success rate, including a -8.59 total EPA for QB Russell Wilson as a passer (average of -1.23 on 7 plays). He only gained an average of 0.14 yards on these passing plays. The running game was not good either, with RB Cam Skattebo only gaining 1.8 yards on average with a -1.89 total (-0.38 average) EPA on 5 plays, though he did have a rushing touchdown. This, however, likely inflates his EPA and success rate, as this was his only successful run inside the red zone. The Cowboys, on the other hand, were much more efficient, getting 3 total (2 passing, 1 rushing) touchdowns. QB Dak Prescott had a total EPA of 6.49 (average of 1.08) and a success rate of 67% on his 6 red zone passes. His best targets were Kavontae Turpin and George Pickens, who both had a touchdown. Turpin had a 10 yard TD for his 1 touch, and Pickens gained 3.75 yards on average on his 4 plays, with a 50% success rate and 0.56 average EPA. RB Miles Sanders was also very efficient, with a 100% success rate on 2 rushes, giving an average EPA of 0.93 and a rushing TD. The only inefficient player was RB Javonte Williams, who had a 0% success rate and -0.37 average EPA on his 2 red zone carries. 
+
+The Giants desperately need to improve their red zone efficiency, as these are easy points left on the board that could have turned the tide of the game in a 3 point loss. They had 8 drives that got to the Red Zone, and only got a touchdown on 1 of these drives. In comparison, the Cowboys were very effective on offense in the red zone, scoring 3 touchdowns on 4 drives, and played great red zone defense to only allow 1 TD.
+
+

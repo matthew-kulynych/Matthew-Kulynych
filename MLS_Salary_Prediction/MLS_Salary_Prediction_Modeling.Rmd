@@ -1,0 +1,345 @@
+---
+title: "Matthew_Kulynych_STA363_FinalProject"
+author: "Matthew Kulynych"
+date: "2023-12-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# DATA CLEANING
+# Read in Data
+salaries <- read.csv("~/STA 363/MLS_Salaries_Data.csv")
+# Create Aerial Success variable (duels won - lost) and accurate pass percentage
+salaries$aerial_success <- salaries$aerial_won - salaries$aerial_lost
+# Create Accurate Pass Percentage
+salaries$acc_pass_per <- (salaries$accurate_pass / salaries$total_pass) * 100
+# replace NaN with 0
+salaries[is.na(salaries)] <- 0
+# Remove variables used to create new ones
+salaries_clean <- salaries[, -c(1,2,13,14,15,19)]
+```
+
+# EDA
+
+```{r}
+library(ggplot2)
+```
+
+```{r, fig.cap = "Figure 1.1: Histogram showing the distribution of guaranteed salary (in dollars)"}
+# Distribution of Salary
+ggplot(salaries_clean, aes(x = guaranteed_comp)) + geom_histogram(bins = 40, color = "blue", fill = "red") + labs(x = "Guaranteed Compensation", title = "Distribution of Guaranteed Salary (in dollars)") + theme_bw()
+```
+
+```{r}
+# Take log of Guaranteed Comp
+salaries_clean$guaranteed_comp <- log(salaries_clean$guaranteed_comp)
+```
+
+```{r, fig.cap = "Figure 1.2: Distribution of Guaranteed Compensation for the 2022 Season (in log(dollars))"}
+# Distribution of log(salary)
+ggplot(salaries_clean, aes(x = guaranteed_comp)) + geom_histogram(bins = 40, color = "blue", fill = "red") + labs(x = "Guaranteed Compensation", title = "Distribution of Guaranteed Salary (in log(dollars))") + theme_bw()
+```
+
+
+```{r}
+# Distribution of Salary Post-Transformation
+salary_dist <- summary(salaries_clean$guaranteed_comp)
+```
+
+| Mean  | Minimum | 1st-Quartile | Median | 3rd-Quartile | Maximum |
+|-------|---------|--------------|--------|--------------|---------|
+| 12.62 | 11.09   | 11.60        | 12.69  | 13.38        | 15.82   |
+
+# Following 6 code chunks plot scatter plots with relationship between X variable and log Guaranteed Compensation  
+
+```{r, fig.cap= "Figure 1.3: Scatterplot showing the relationship between minutes played and guaranteed compensation"}
+ggplot(salaries_clean, aes(x = mins, y = guaranteed_comp)) + geom_point(color = "blue") + labs(x = "Minutes Played", y = "Guaranteed Compensation (log Dollars)", title = "Minutes Played vs Guaranteed Compensation") + theme_bw() + stat_smooth(method = "lm", formula = y~x, size = 1, se=FALSE, color = "red")
+```
+
+
+```{r, fig.cap = "Figure 1.4: Relationship between guaranteed compensation in log(Dollars) and total goals scored in the 2021 season"}
+ggplot(salaries_clean, aes(x = goals, y = guaranteed_comp)) + geom_point(color='darkgreen') + theme_gray() + labs(x= "Goals Scored", y = "Guaranteed Compensation (log dollars)", title = "Goals Scored vs Salary") + geom_smooth(method = "lm", formula = y~x, size = 1, se = FALSE)
+```
+
+```{r, fig.cap="Figure 1.5: Relationship between total assists in 2021 and guaranteed compenasation for 2022 in log dollars"}
+ggplot(salaries_clean, aes(x = assist, y = guaranteed_comp)) + geom_point(color = "navy") + theme_bw() + labs(x = "Total Assists", y = "Guaranteed Salary (log dollars", title = "Assists vs Salary") +  geom_smooth(method = "lm", formula = y~x, size = 1, se = FALSE, color = "red")
+```
+
+```{r, fig.cap = "Figure 1.6: Relationship between accurate passes entering the attacking half and the 2022 guaranteed salary in log dollars"}
+ggplot(salaries_clean, aes(x = accurate_fwd_zone_pass, y = guaranteed_comp)) + geom_point(color = "orange") + theme_bw() + labs(x = "Accurate Forward Zone Passes", y = "Guaranteed salary (log dollars)", title = "Accurate Forward Zone Passes vs Guaranteed Salary") + geom_smooth(method = "lm", formula = y~x, size = 1, se = FALSE)
+```
+
+```{r, fig.cap="Figure 1.7: Plot showing the relationship between total successful dribbles in the 2021 Season and 2022 Guaranteed Salary in log dollars"}
+ggplot(salaries_clean, aes(x = successful_dribble, y = guaranteed_comp)) + geom_point(color = "purple") + theme_bw() + labs(x = "Successful Dribbles", y = "Guaranteed Salary (log dolalrs)", title = "Successful Dribbles vs Guaranteed 2022 Salary") + geom_smooth(method = "lm", formula = y~x, size = 1, se = FALSE, color = "red")
+```
+
+```{r, fig.cap="Figure 1.8:  Plot showing the relationship between tackle success percentage in the 2021 season and 2022 Guaranteed Compensation in log dollars"}
+ggplot(salaries_clean, aes(x = tackle_success_per, y = guaranteed_comp)) + geom_point(color = "pink") + theme_bw() + labs(x = "Tackle Success Percentage", y = "Guaranteed Salary (log dollars)", title = "Tackle Success Percentage vs Guaranteed 2022 Salary") + geom_smooth(method = "lm", formula = y~x, size = 1, se = FALSE, color = "blue")
+```
+
+```{r}
+suppressMessages(library(corrplot))
+library(RColorBrewer)
+```
+
+
+```{r}
+# Code to check for correlation between features
+M <- cor(salaries_clean[,-c(1,2)])
+corrplot(M, type="upper", order="hclust")
+```
+
+```{r}
+# Drop games started since very high correlation with minutes played
+salaries_clean <- salaries_clean[, -3]
+```
+
+
+# K-NN
+
+```{r}
+# library for KNN functions
+suppressMessages(library(StatMatch))
+
+# KNN w/ Gower's Distance function
+knnGower <- function(trainX, testX, trainY, K){
+  # Find the Gower Distance
+  gowerHold <- StatMatch::gower.dist( testX, trainX)
+  # For each row, find the k smallest
+  neighbors <- apply(gowerHold, 1, function(x) which(x %in% sort(x)[1:K]))
+  
+  if(class(neighbors)[1]=="integer"){
+    preds <- trainY[neighbors]
+  }
+  
+  # Take the mean to get the prediction
+  if(class(neighbors)[1]=="matrix"){
+    preds <- apply(neighbors, 2,function(x) mean(trainY[x]))
+  }
+  
+  if(class(neighbors)[1]=="list"){
+    preds <- lapply(neighbors, function(x) mean(trainY[x]))
+  }
+  # Return the predictions
+  unlist(preds)
+}
+```
+
+```{r}
+# RMSE Computation Function
+compute_RMSE <- function(truth, predictions){
+
+  # Part 1
+  part1 <- truth - predictions
+  
+  #Part 2
+  part2 <- part1^2
+  
+  #Part 3: RSS 
+  part3 <- sum(part2)
+  
+  #Part4: MSE
+  part4 <- 1/length(predictions)*part3
+  
+  # Part 5:RMSE
+  sqrt(part4)
+}
+```
+
+```{r}
+n <- 549
+# Get the folds for LOOCV
+# Set a random seed for tickets for 10-Fold
+set.seed(1472)
+
+# Get the tickets
+tickets <- rep(1:10, 55)
+
+# Sample the tickets into folds
+folds <- sample(tickets, n, replace = FALSE)
+```
+
+
+```{r}
+# Create a storage space to hold the value of K and the
+# test RMSE for that choice of K
+
+test_RMSE_knn <- data.frame("K" = 1:30, "RMSE" = rep(NA,30))
+# Outer Loop iterates on different values of K
+for( k in  1:30 ){
+
+  # Storage for predictions for each iteration of k
+  Yhats_nest <- data.frame("Guaranteed Comp" = rep(NA,n))
+
+  # Inner Loop (running 10-fold CV)
+  for( f in  1:10){
+    # Which rows are in current fold
+  inFold_knest <- which(folds == f)
+  
+  # Create train/test data
+  trainSet <- salaries_clean[-inFold_knest, ]
+  testSet <- salaries_clean[inFold_knest, ]
+  
+  # Use K-NN for Predictions
+  pred_knn_nest <- knnGower(trainSet[, -1], testSet[, -1], trainSet[, 1], K=k)
+  
+  Yhats_nest[inFold_knest, 1] <- pred_knn_nest
+ 
+  }
+  
+  # Store test RMSE for current value of K
+  test_RMSE_knn[k, 2] <- compute_RMSE(salaries_clean[ , 1], Yhats_nest[,1])
+
+}
+
+```
+
+```{r}
+# Table and Graph to display K vs Test RMSE
+knitr::kable(test_RMSE_knn)
+ggplot(data = test_RMSE_knn, aes(x = K, y = RMSE)) + geom_line(color = "blue") + labs(x = "K Value", y = "Test RMSE", title = "Test RMSE vs K") + theme_bw()
+```
+
+```{r}
+# Print the RMSE for k = 7
+test_RMSE_knn[7,]
+```
+
+
+# Elastic Net
+
+```{r}
+# Library for elastic net
+library(glmnet)
+# Function to plot RMSE vs Lambda
+ridgePlot <- function(ridge.mod, metric, title){
+  suppressMessages(library(ggplot2))
+  
+  smallestLambda <- ridge.mod$lambda[which.min(ridge.mod$cvm)] 
+  
+  if(metric == "MSE"){
+  g1 <- ggplot( data.frame(ridge.mod$lambda), aes( x = ridge.mod$lambda, y = (ridge.mod$cvm))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Test MSE values for Different Tuning Parameters. Smallest MSE at lambda = ", smallestLambda), title = title, y = "Test MSE", x = "Tuning Parameter")
+  
+  }
+  
+  if(metric == "RMSE"){
+  g1 <- ggplot( data.frame(ridge.mod$lambda), aes( x = ridge.mod$lambda, y = sqrt(ridge.mod$cvm))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Test RMSE values for Different Tuning Parameters. Smallest RMSE at lambda = ", smallestLambda), title = title, y = "Test RMSE", x = "Tuning Parameter")
+
+  }
+  
+  g1
+}
+```
+
+```{r}
+# Get the Design Matrix, which is needed for Elastic Net
+XD <- model.matrix(guaranteed_comp ~ ., data = salaries_clean)
+```
+
+
+```{r}
+# Set a sequence of alpha values to loop through
+alphaseq <- seq(from = 0, to = 1, by = .01)
+alpha_vals <- c()
+# Storage for best lambda for each alpha based on RMSE
+best_lambdas <- c()
+# Storage for that RMSE value
+best_RMSEs <- c()
+# Fit elastic net
+for(a in alphaseq){
+  # Same code for fitting ridge and lasso, except we use the current value of a for alpha
+  # Limited the range of lambdas, because the lambda for elastic net will be between the lambdas for ridge and lasso
+  net.mod <- cv.glmnet(XD[,-1], salaries_clean$guaranteed_comp, alpha = a, lambda = seq(from = 0, to = 1, by = .01), standardize = TRUE)
+  
+  # Get the best lambda and RMSE
+  
+  best_lambda_index <- which.min(net.mod$cvm)
+  best_lambda_value <- net.mod$lambda[best_lambda_index]
+  min_rmse_value <- sqrt(min(net.mod$cvm))
+  
+  best_lambdas <- c(best_lambdas, best_lambda_value)
+  best_RMSEs <- c(best_RMSEs, min_rmse_value)
+  alpha_vals <- c(alpha_vals, a)
+}
+
+```
+
+```{r}
+# Test RMSE
+# Data frame of all alpha and lambda values and the associated RMSE
+resultsE <- data.frame("Alpha" = alpha_vals, "Lambda" = best_lambdas, "RMSE" = best_RMSEs)
+# Get the smallest RMSE and print
+smallestE <- which.min(resultsE$RMSE)
+knitr::kable(resultsE[smallestE, ])
+```
+
+```{r}
+# Final Elastic Net Model:
+net.final <- glmnet(XD[,-1], salaries_clean[,"guaranteed_comp"], alpha = .35, lambda = 0.01, standardize = TRUE)
+# Store the estimated coefficients
+net.betas <- as.numeric(coefficients(net.final))
+```
+
+```{r}
+# Code to print model coefficients as a dataframe
+BetasFinal <- data.frame("Elastic Net" = net.betas)
+rownames(BetasFinal) <- colnames(XD)
+knitr::kable(BetasFinal)
+```
+
+
+# Random Forest
+
+```{r, warning=F}
+# Install Packages for RandomForest (CRANmirror for an error that appeared before)
+chooseCRANmirror(graphics=FALSE, ind=1)
+install.packages("randomForest")
+suppressMessages(library(randomForest))
+install.packages("ISLR")
+suppressMessages(library(ISLR))
+```
+
+```{r}
+# Set Random Seed
+set.seed(100)
+# Fit randomForest regression model with 10000 trees on the 15 explanatory variable
+bag.comp <- randomForest(guaranteed_comp ~ ., data = salaries_clean , mtry = 15, ntree = 10000, compete= FALSE)
+```
+
+```{r}
+# Print Summary Statistics
+bag.comp
+```
+
+```{r}
+# Calculate and print RMSE from MSE
+forest.rmse <- sqrt(0.6188188)
+forest.rmse
+```
+
+# Comparing RMSE
+
+| Method    | K-NN  | Elastic Net | Random Forests |
+|-----------|-------|-------------|----------------|
+| Test RMSE | 0.794 | 0.753       | 0.787          |
+
+
+# Code for Fitting and Displaying a tree
+
+```{r}
+# Libraries for Tree
+library(rpart)
+library(rpart.plot)
+library(rattle)
+```
+
+```{r}
+# Fit tree (max depth 3 for better visualization)
+tree.salary <- rpart(guaranteed_comp ~ ., method = "anova", data = salaries_clean, maxdepth = 5)
+# Plot the tree
+fancyRpartPlot(tree.salary, sub = "Example Prediction Tree")
+```
