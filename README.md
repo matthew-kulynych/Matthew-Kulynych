@@ -24,6 +24,7 @@ Looking for a detailed overview of my skills and experience?
 - **Machine Learning:** Linear regression, logistic regression, generalized linear models, regression trees/forests, various clustering and classification techniques, elastic net regression  
 - **Database Design:** MySQL, schema modeling, ER diagrams
 - **Web Scraping:** BeautifulSoup, Selenium
+- **Microsoft Suite:** PowerPoint, Excel, Word, Access
 - **Sports Analytics:** Tactical analysis, scouting reports, performance modeling  
 - **Collaboration:** GitHub, Team-based problem solving, project communication  
 
