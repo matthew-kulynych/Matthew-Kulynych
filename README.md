@@ -36,6 +36,14 @@ This repo contains code, documentation, and datasets for projects I’ve built. 
   
   This project contains 2 game analyses from the 2025-26 NFL season. I utilized the nflreadr package to read in and examine play-by-play data for the Week 1 game between the Colts and Dolphins, and the Week 2 game between the Giants and Cowboys. From here, the Colts/Dolphins game file contains some extra information about the process of cleaning and understanding the data, before driving a few key insights from the game. The Giants/Cowboys file is focused just on deriving game insights, such as red zone efficiency on an individual player level.
 
+- **Customer Retention**
+
+  Here, I worked with a season ticketing dataset to predict and determine what factors are most important to the retention of a season ticket holder. I utilized a random forest model for my predictions, and commented on the strength/accuracy of the model as well as the feature importance. The 1st R file is primarily about understanding and cleaning the data, while the 2nd R file builds on this to run the model predictions.
+
+- **Marketing, Budgeting, and Scheduling Optimization**
+
+  This folder contains some simple Excel files in which I used mathematical optimization with solver to determine the best way to organize budgets and schedules based on pre-determined constraints. 
+
 - **MLS Salary Prediction Model**  
 
   In this project from my Junior year at Wake Forest University, I used Major League Soccer salary and performance data from Kaggle ([kaggle.com/datasets/viv6369/mls-season-2021-players-stats-and-their-salaries?selecct+Stats_description.txt](https://www.kaggle.com/datasets/viv6369/mls-season-2021-players-stats-and-their-salaries?select=Stats_description.txt)) to predict how much a player should be earning based on past performances. This project aimed to find both undervalued players that a team could sign to improve their performance for a smaller fee as well as overvalued players who are not worth the expensive wages they command.
