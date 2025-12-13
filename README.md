@@ -11,11 +11,6 @@ Welcome! I’m **Matthew Kulynych**, an aspiring sports analyst and data scienti
 
 ---
 
-## 📄 Resume
-**[👉 View My Resume (PDF)](MK-Resume.pdf)**
-
----
-
 ## 🛠 Skills
 - **Programming & Data Analysis:** Python, R, SQL, Java, C++    
 - **Data Visualization:** ggplot2, matplotlib, ggrepel, annotation design, Streamlit, plotly and interactive plots, basic Tableau
