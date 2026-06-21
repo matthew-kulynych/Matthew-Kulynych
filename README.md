@@ -20,8 +20,9 @@ Looking for a detailed overview of my skills and experience?
 
 ## 🛠 Skills
 - **Programming & Data Analysis:** Python, R, SQL, Java, C++    
-- **Data Visualization:** ggplot2, matplotlib, ggrepel, annotation design, Streamlit, plotly and interactive plots, basic Tableau
-- **Machine Learning:** Linear regression, logistic regression, generalized linear models, regression trees/forests, various clustering and classification techniques, elastic net regression  
+- **Data Visualization:** Tableau, RShiny, RPubs, Dash, ggplot2, matplotlib, ggrepel, annotation design, Streamlit, plotly and interactive plots
+- **Machine Learning:** Linear regression, logistic regression, generalized linear models, regression trees/forests, various clustering and classification techniques, elastic net regression
+- **CRM Reporting**: Salesforce, NPSP and NPC integrations
 - **Database Design:** MySQL, schema modeling, ER diagrams
 - **Web Scraping:** BeautifulSoup, Selenium
 - **Microsoft Suite:** PowerPoint, Excel, Word, Access
@@ -62,7 +63,7 @@ This repo contains code, documentation, and datasets for projects I’ve built. 
 ## 🔗 Other Projects
 In addition to the files here, I’ve worked on several projects linked externally:
 
-- **NFL Big Data Bowl 2026 - Hit 'Em In Stride** – [kaggle.com/code/mkulynych/hit-em-in-stride-final](https://www.kaggle.com/code/mkulynych/hit-em-in-stride-final) For the 2026 NFL Big Data Bowl, we decided to explore the importance of hitting the receiver in stride on deeper passes. Specifically, we wanted to see how it related to efficiency metrics, creating explosive plays, and which quarterbacks were the best at hitting their receiver in stride. We defined "in-stride" based on the receiver's pre and post throw acceleration, and "in-stride" throws were considered to be those where the receiver's acceleration did not change a lot immediately before and after the throw. Feel free to read through our Kaggle notebook for our motivation, methods, results, and applications!
+- **NFL Big Data Bowl 2026 - Hit 'Em In Stride** – [kaggle.com/code/mkulynych/hit-em-in-stride-final](https://www.kaggle.com/code/mkulynych/hit-em-in-stride-final) For the 2026 NFL Big Data Bowl, we decided to explore the importance of hitting the receiver in stride on deeper passes. Specifically, we wanted to see how it related to efficiency metrics, creating explosive plays, and which quarterbacks were the best at hitting their receiver in stride. We defined "in-stride" based on the receiver's pre and post throw acceleration, and "in-stride" throws were considered to be those where the receiver's acceleration did not change a lot immediately before and after the throw. In May 2026 we were selected to present our project to members of the Indianapolis Colts player and business analytics staff as well as former Colts receiver Bill Brooks. We received insightful feedback and answered both technical and sport-related questions from the team through this special experience. Feel free to read through our Kaggle notebook for our motivation, methods, results, and applications!
 
 - **Wake Forest Men’s Soccer Match Analyses** – I auuthored weekly tactical and performance breakdowns published in the *Old Gold & Black* newspaper at Wake Forest University for the men's soccer team. Here is the link to all of my articles! [wfuogb.com/staff_name/matthew-kulynych/](https://wfuogb.com/staff_name/matthew-kulynych/)
 
